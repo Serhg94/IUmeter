@@ -1,0 +1,108 @@
+/*
+ * IncFile1.h
+ *
+ * Created: 01.11.2016 0:27:42
+ *  Author: Serhg
+ */ 
+
+
+#ifndef INCFILE1_H_
+#define INCFILE1_H_
+
+
+#define F_CPU 16000000UL
+
+#define FAST_BLINK_TIMER_REMAIND 30
+
+#define VOLTAGE_DIFF_TO_REFRASH 1
+#define AMPER_DIFF_TO_REFRASH 2
+#define I_SAMPLES_COUNT 25
+#define ADC_REFRASH_DURATION 100
+#define ADC_CYCLES 13.5*16+65
+
+#define AH_CALCULATE_DIV 50000
+#define RESOLUTION_BLINK_DURATION 10000
+#define SET_AH_DISPLAY_DURATION 50000
+#define TIMER_LED_BLINK_DURATION 10000
+#define TIMER_LED_FASTBLINK_DURATION 5000
+#define DISPLAY_REFRASH_DURATION 3000
+
+//99 часов
+#define MAX_TIMER_TIME 359999
+#define MIN_TIMER_TIME 10
+
+#define START_IGNORE_TIME 250
+#define PRESS_TIME 150
+#define LONG_PRESS_TIME 1000
+
+//кнопка запуска источника
+#define START_BUTT_DDR DDRD
+#define START_BUTT_PORT PORTD
+#define START_BUTT_PIN PIND
+#define START_BUTT 2
+//выход на управление источником - бывших торч он аут
+#define START_OUT_DDR DDRB
+#define START_OUT_PORT DDRB
+#define START_OUT 5
+
+//нижний диод 
+#define TIM_LED_DDR DDRD
+#define TIM_LED_PORT PORTD
+#define TIM_LED 0
+//средний диод
+#define AH_ALERT_DDR DDRD
+#define AH_ALERT_PORT PORTD
+#define AH_ALERT 1
+//верхних диод
+#define ACT_LED_DDR DDRB
+#define ACT_LED_PORT PORTB
+#define ACT_LED 3
+
+//кнопка энкодера установки ампер часов
+#define AH_BUTT_DDR DDRB
+#define AH_BUTT_PORT PORTB
+#define AH_BUTT_PIN PINB
+#define AH_BUTT 4
+//кнопка энкодера установки времени таймера
+#define TIMER_BUTT_DDR DDRD
+#define TIMER_BUTT_PORT DDRD
+#define TIMER_BUTT_PIN PIND
+#define TIMER_BUTT 3
+
+//порт и выводы к которым подключен энкодер установки счетчика ампер часов
+#define PORT_EncT 	PORTD
+#define PIN_EncT 	PIND
+#define DDR_EncT 	DDRD
+#define Pin1_EncT 	4
+#define Pin2_EncT 	5
+//порт и выводы к которым подключен энкодер установки таймера
+#define PORT_Enc	PORTD
+#define PIN_Enc 	PIND
+#define DDR_Enc 	DDRD
+#define Pin1_Enc 	6
+#define Pin2_Enc 	7
+/*
+	Здесь определяются выводы контроллера, подключенные к LCD. Выводы данных
+	должны занимать один порт. Порядок выводов любой. Также на одном порту
+	должны располагаться управляющие выводы. Тоже в любом порядке, не обяза-
+	тельно подряд.
+*/ 
+
+#define LCDDATAPORT			PORTC					// Порт и пины,
+#define LCDDATADDR			DDRC					// к которым подключены
+#define LCDDATAPIN			PINC					// сигналы D4-D7.
+#define LCD_D4				2
+#define LCD_D5				3
+#define LCD_D6				4
+#define LCD_D7				5
+
+#define LCDCONTROLPORT		PORTB					// Порт и пины,
+#define LCDCONTROLDDR		DDRB					// к которым подключены
+#define LCD_RS				0						// сигналы RS, RW и E.
+#define LCD_RW				1
+#define LCD_E				2
+
+
+
+
+#endif /* INCFILE1_H_ */
