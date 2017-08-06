@@ -85,8 +85,8 @@ void init()
 	SetBit(ACT_LED_DDR, ACT_LED);
 	SetBit(ACT_LED_PORT, ACT_LED);
 	//диод счетчика AH
-	SetBit(AH_ALERT_DDR, ACT_LED);
-	SetBit(AH_ALERT_PORT, ACT_LED);
+	SetBit(AH_ALERT_DDR, AH_ALERT);
+	SetBit(AH_ALERT_PORT, AH_ALERT);
 	//диод таймера
 	SetBit(TIM_LED_DDR, TIM_LED);
 	SetBit(TIM_LED_PORT, TIM_LED);
@@ -289,9 +289,9 @@ void periodicProcess()
 			diff += (((double)(millis()-ah_calc_last_time))/3600000)*current;
 			if (diff>0)
 			{
-				uint32_t udiff = diff;
+				uint32_t udiff = (uint32_t)diff;
 				summary_ah += udiff;
-				diff -= udiff;
+				diff -= (double)udiff;
 			}
 			ah_calc_last_time = millis();
 			meter_state = 0;
@@ -332,6 +332,8 @@ void periodicProcess()
 			}
 		}
 	}
+	else 
+		ah_alert_output = 0;
 	
 	//периодически обновляем содержимое дисплея
 	disp_state++;

@@ -59,15 +59,15 @@
 #define ACT_LED 3
 
 //кнопка энкодера установки ампер часов
-#define AH_BUTT_DDR DDRB
-#define AH_BUTT_PORT PORTB
-#define AH_BUTT_PIN PINB
-#define AH_BUTT 4
+#define AH_BUTT_DDR DDRD
+#define AH_BUTT_PORT PORTD
+#define AH_BUTT_PIN PIND
+#define AH_BUTT 3
 //кнопка энкодера установки времени таймера
-#define TIMER_BUTT_DDR DDRD
-#define TIMER_BUTT_PORT DDRD
-#define TIMER_BUTT_PIN PIND
-#define TIMER_BUTT 3
+#define TIMER_BUTT_DDR DDRB
+#define TIMER_BUTT_PORT PORTB
+#define TIMER_BUTT_PIN PINB
+#define TIMER_BUTT 4
 
 //порт и выводы к которым подключен энкодер установки счетчика ампер часов
 #define PORT_EncT 	PORTD

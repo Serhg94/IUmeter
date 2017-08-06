@@ -598,16 +598,16 @@ Disassembly of section .text:
      50a:	25 9a       	sbi	0x04, 5	; 4
      50c:	23 9a       	sbi	0x04, 3	; 4
      50e:	2b 9a       	sbi	0x05, 3	; 5
-     510:	53 9a       	sbi	0x0a, 3	; 10
-     512:	5b 9a       	sbi	0x0b, 3	; 11
+     510:	51 9a       	sbi	0x0a, 1	; 10
+     512:	59 9a       	sbi	0x0b, 1	; 11
      514:	50 9a       	sbi	0x0a, 0	; 10
      516:	58 9a       	sbi	0x0b, 0	; 11
      518:	52 98       	cbi	0x0a, 2	; 10
      51a:	5a 9a       	sbi	0x0b, 2	; 11
-     51c:	53 98       	cbi	0x0a, 3	; 10
-     51e:	53 9a       	sbi	0x0a, 3	; 10
-     520:	24 98       	cbi	0x04, 4	; 4
-     522:	2c 9a       	sbi	0x05, 4	; 5
+     51c:	24 98       	cbi	0x04, 4	; 4
+     51e:	2c 9a       	sbi	0x05, 4	; 5
+     520:	53 98       	cbi	0x0a, 3	; 10
+     522:	5b 9a       	sbi	0x0b, 3	; 11
      524:	0e 94 53 00 	call	0xa6	; 0xa6 <ENC_InitEncoder>
      528:	10 92 da 01 	sts	0x01DA, r1	; 0x8001da <display_mutex>
      52c:	83 e0       	ldi	r24, 0x03	; 3
@@ -1268,10 +1268,10 @@ Disassembly of section .text:
      bc6:	00 97       	sbiw	r24, 0x00	; 0
      bc8:	a1 05       	cpc	r26, r1
      bca:	b1 05       	cpc	r27, r1
-     bcc:	69 f1       	breq	.+90     	; 0xc28 <periodicProcess+0x292>
+     bcc:	39 f1       	breq	.+78     	; 0xc1c <periodicProcess+0x286>
      bce:	20 91 c3 01 	lds	r18, 0x01C3	; 0x8001c3 <start_output>
      bd2:	22 23       	and	r18, r18
-     bd4:	49 f1       	breq	.+82     	; 0xc28 <periodicProcess+0x292>
+     bd4:	19 f1       	breq	.+70     	; 0xc1c <periodicProcess+0x286>
      bd6:	40 91 c9 01 	lds	r20, 0x01C9	; 0x8001c9 <summary_ah>
      bda:	50 91 ca 01 	lds	r21, 0x01CA	; 0x8001ca <summary_ah+0x1>
      bde:	60 91 cb 01 	lds	r22, 0x01CB	; 0x8001cb <summary_ah+0x2>
@@ -1832,7 +1832,7 @@ Disassembly of section .text:
     1194:	86 e0       	ldi	r24, 0x06	; 6
     1196:	90 e0       	ldi	r25, 0x00	; 0
     1198:	0e 94 cc 0e 	call	0x1d98	; 0x1d98 <eeprom_write_byte>
-    119c:	4b 9b       	sbis	0x09, 3	; 9
+    119c:	1c 9b       	sbis	0x03, 4	; 3
     119e:	35 c0       	rjmp	.+106    	; 0x120a <encoderButtStates+0xde>
     11a0:	80 91 78 01 	lds	r24, 0x0178	; 0x800178 <enc_state.2285>
     11a4:	88 23       	and	r24, r24
@@ -1873,7 +1873,7 @@ Disassembly of section .text:
     1200:	10 92 78 01 	sts	0x0178, r1	; 0x800178 <enc_state.2285>
     1204:	10 92 79 01 	sts	0x0179, r1	; 0x800179 <press_flag.2286>
     1208:	15 c0       	rjmp	.+42     	; 0x1234 <encoderButtStates+0x108>
-    120a:	4b 99       	sbic	0x09, 3	; 9
+    120a:	1c 99       	sbic	0x03, 4	; 3
     120c:	13 c0       	rjmp	.+38     	; 0x1234 <encoderButtStates+0x108>
     120e:	80 91 78 01 	lds	r24, 0x0178	; 0x800178 <enc_state.2285>
     1212:	81 11       	cpse	r24, r1
@@ -1910,7 +1910,7 @@ Disassembly of section .text:
     126e:	10 92 ca 01 	sts	0x01CA, r1	; 0x8001ca <summary_ah+0x1>
     1272:	10 92 cb 01 	sts	0x01CB, r1	; 0x8001cb <summary_ah+0x2>
     1276:	10 92 cc 01 	sts	0x01CC, r1	; 0x8001cc <summary_ah+0x3>
-    127a:	1c 9b       	sbis	0x03, 4	; 3
+    127a:	4b 9b       	sbis	0x09, 3	; 9
     127c:	35 c0       	rjmp	.+106    	; 0x12e8 <encoderButtStates+0x1bc>
     127e:	80 91 76 01 	lds	r24, 0x0176	; 0x800176 <enc_state2.2287>
     1282:	88 23       	and	r24, r24
@@ -1951,7 +1951,7 @@ Disassembly of section .text:
     12de:	10 92 76 01 	sts	0x0176, r1	; 0x800176 <enc_state2.2287>
     12e2:	10 92 77 01 	sts	0x0177, r1	; 0x800177 <press_flag2.2288>
     12e6:	15 c0       	rjmp	.+42     	; 0x1312 <encoderButtStates+0x1e6>
-    12e8:	1c 99       	sbic	0x03, 4	; 3
+    12e8:	4b 99       	sbic	0x09, 3	; 9
     12ea:	13 c0       	rjmp	.+38     	; 0x1312 <encoderButtStates+0x1e6>
     12ec:	80 91 76 01 	lds	r24, 0x0176	; 0x800176 <enc_state2.2287>
     12f0:	81 11       	cpse	r24, r1
