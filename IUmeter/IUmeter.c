@@ -19,6 +19,7 @@
 
 uint32_t timer_time;
 uint32_t lostcycles = 0;
+uint32_t save_time = 0;
 
 uint16_t voltage = 0;
 uint16_t current = 0;
@@ -39,7 +40,7 @@ uint16_t enc_butt_resolution = 1;
 uint32_t ah_butt_resolution = 1;
 bool enc_butt_resolution_change = 0;
 uint8_t ah_butt_resolution_change = 0;
-uint16_t abr_state;
+uint32_t abr_state;
 
 uint8_t display_mutex;
 uint8_t display_changed;
@@ -272,8 +273,11 @@ void periodicProcess()
 		else if (abr_state >= SET_AH_DISPLAY_DURATION)
 		{
 			ah_butt_resolution_change = 0;
+			ah_butt_resolution = 1;
 			abr_state = 0;
 			display_changed|=128;
+			eeprom_write_word(7, (uint16_t)(set_ah & 0xFFFF));
+			eeprom_write_word(10, (uint16_t)(set_ah & 0xFFFF0000 >> 16));
 		}
 	}
 	
@@ -331,7 +335,11 @@ void periodicProcess()
 					ah_alert_output = 1;
 			}
 		}
+		else
+		//тушим диод тревоги, если подняли установленное значение ампер часов
+			ah_alert_output = 0;
 	}
+	//тушим диод тревоги, если источник не запущен
 	else 
 		ah_alert_output = 0;
 	
@@ -342,9 +350,21 @@ void periodicProcess()
 		disp_state = 0;
 		displayRefrash();
 	}
+	
+	//при изменении времени - сохраняем время не сразу
+	if (save_time > 0)
+	{
+		save_time++;
+		if (save_time == SAVE_TIME_DURATION)
+		{
+			save_time = 0;
+			eeprom_write_word(0, (uint16_t)(timer_time & 0xFFFF));
+			eeprom_write_word(3, (uint16_t)(timer_time & 0xFFFF0000 >> 16));
+		}
+	}
 }
 
-void encoderProcess()
+void encoderProcess()             
 {		
 	//обработка вращения энкодера установки ампер часов
 	int rotation = ENC_PollEncoderT();
@@ -356,8 +376,6 @@ void encoderProcess()
 		display_changed|=2;
 		ah_butt_resolution_change = 1;
 		abr_state = 0;
-		eeprom_write_word(7, (uint16_t)(set_ah & 0xFFFF));
-		eeprom_write_word(10, (uint16_t)(set_ah & 0xFFFF0000 >> 16));
 	}
 	if (rotation==LEFT_SPIN)
 	if (set_ah<999999)
@@ -367,8 +385,6 @@ void encoderProcess()
 		display_changed|=2;
 		ah_butt_resolution_change = 1;
 		abr_state = 0;
-		eeprom_write_word(7, (uint16_t)(set_ah & 0xFFFF));
-		eeprom_write_word(10, (uint16_t)(set_ah & 0xFFFF0000 >> 16));
 	}
 	// энкодер установки времени таймера
 	if (timer_state>0) return;
@@ -379,16 +395,14 @@ void encoderProcess()
 		if (timer_time-MIN_TIMER_TIME<enc_butt_resolution) return;
 		timer_time = timer_time - enc_butt_resolution;
 		display_changed|=2;
-		eeprom_write_word(0, (uint16_t)(timer_time & 0xFFFF));
-		eeprom_write_word(3, (uint16_t)(timer_time & 0xFFFF0000 >> 16));
+		save_time = 1;
 	}
 	if (rotation==LEFT_SPIN)
 	if (timer_time<MAX_TIMER_TIME) 
 	{
 		if (timer_time+enc_butt_resolution>MAX_TIMER_TIME) return;
 		timer_time = timer_time + enc_butt_resolution;
-		eeprom_write_word(0, (uint16_t)(timer_time & 0xFFFF));
-		eeprom_write_word(3, (uint16_t)(timer_time & 0xFFFF0000 >> 16));
+		save_time = 1;
 		display_changed|=2;
 	}
 }
@@ -447,7 +461,10 @@ void readStates()
 			new_I = new_I/I_SAMPLES_COUNT;
 			if (current - new_I>AMPER_DIFF_TO_REFRASH)
 			{
-				current = new_I;
+				if (new_I < 999)
+					current = new_I;
+				else
+					current = 0;
 				display_changed|=16;
 			}
 			iter = 0;
