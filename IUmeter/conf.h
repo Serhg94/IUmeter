@@ -16,8 +16,10 @@
 
 #define VOLTAGE_DIFF_TO_REFRASH 1
 #define AMPER_DIFF_TO_REFRASH 2
-#define I_SAMPLES_COUNT 25
-#define ADC_REFRASH_DURATION 100
+#define I_SAMPLES_COUNT 40
+#define I_LOW_LIMIT 10
+
+#define ADC_REFRASH_DURATION 200
 #define ADC_CYCLES 13.5*16+65
 
 #define AH_CALCULATE_DIV 50000
@@ -43,7 +45,7 @@
 #define START_BUTT 2
 //выход на управление источником - бывших торч он аут
 #define START_OUT_DDR DDRB
-#define START_OUT_PORT DDRB
+#define START_OUT_PORT PORTB
 #define START_OUT 5
 
 //нижний диод 

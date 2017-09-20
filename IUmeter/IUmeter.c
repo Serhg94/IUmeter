@@ -122,15 +122,6 @@ void displayRefrash()
 	{
 		char stringOne[17];
 		char stringTwo[17];
-		uint32_t time;
-		if (timer_state>0)
-			time = timer_time - millis()/1000;
-		else
-			time = timer_time;
-		uint32_t hours = (time/3600);
-		time = time - hours*3600;
-		uint16_t min = (time/60);
-		uint8_t sec = time - min*60;
 		uint32_t summary_tr;
 		if (ah_butt_resolution_change>=1)
 			summary_tr = set_ah;
@@ -138,14 +129,29 @@ void displayRefrash()
 			summary_tr = summary_ah;
 		//мигание элементов времени таймера
 		sprintf(stringOne, "I=%03uA U=%02uV A*h", current, voltage);
-		if ((enc_butt_resolution_change)&&(enc_butt_resolution == 1))
-			sprintf(stringTwo, "%02lu:%02u:    %06lu", hours, min, summary_tr);
-		else if ((enc_butt_resolution_change)&&(enc_butt_resolution == 60))
-			sprintf(stringTwo, "%02lu:  :%02d  %06lu", hours, sec, summary_tr);
-		else if ((enc_butt_resolution_change)&&(enc_butt_resolution == 3600))
-			sprintf(stringTwo, "  :%02u:%02d  %06lu", min, sec, summary_tr);
-		else 
-			sprintf(stringTwo, "%02lu:%02u:%02d  %06lu", hours, min, sec, summary_tr);
+		if (timer_ena){
+			uint32_t time;
+			if (timer_state>0)
+				time = timer_time - millis()/1000;
+			else
+				time = timer_time;
+			uint32_t hours = (time/3600);
+			time = time - hours*3600;
+			uint16_t min = (time/60);
+			uint8_t sec = time - min*60;
+			if ((enc_butt_resolution_change)&&(enc_butt_resolution == 1))
+				sprintf(stringTwo, "%02lu:%02u:    %06lu", hours, min, summary_tr);
+			else if ((enc_butt_resolution_change)&&(enc_butt_resolution == 60))
+				sprintf(stringTwo, "%02lu:  :%02d  %06lu", hours, sec, summary_tr);
+			else if ((enc_butt_resolution_change)&&(enc_butt_resolution == 3600))
+				sprintf(stringTwo, "  :%02u:%02d  %06lu", min, sec, summary_tr);
+			else
+				sprintf(stringTwo, "%02lu:%02u:%02d  %06lu", hours, min, sec, summary_tr);
+		}
+		else
+		{
+			sprintf(stringTwo, "--:--:--  %06lu", summary_tr);
+		}
 		if (ah_butt_resolution_change>0)
 		{
 			stringTwo[9] = '>';
@@ -207,7 +213,6 @@ void ChangeAhResolution()
 	if (ah_butt_resolution == 100000)
 	ah_butt_resolution = 1;
 	else ah_butt_resolution = ah_butt_resolution*10;
-	ah_butt_resolution_change = 2;
 	abr_state = 0;
 	display_changed|=128;
 }
@@ -290,7 +295,7 @@ void periodicProcess()
 		if (meter_state >= AH_CALCULATE_DIV)
 		{
 			static double diff = 0;
-			diff += (((double)(millis()-ah_calc_last_time))/3600000)*current;
+			diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current;
 			if (diff>0)
 			{
 				uint32_t udiff = (uint32_t)diff;
@@ -448,72 +453,100 @@ void setStates()
 void readStates()
 {
 	static uint16_t samples[I_SAMPLES_COUNT];
+	static uint16_t correction = 0;
 	static uint8_t iter = 0;
 	static uint16_t adc_state = 0;
 	adc_state++;
 	if (adc_state == ADC_REFRASH_DURATION)
 	{
-		if (iter>=I_SAMPLES_COUNT)
-		{
-			uint32_t new_I = 0;
-			for (int s=0; s < I_SAMPLES_COUNT; s++ )
-			new_I += samples[s];
-			new_I = new_I/I_SAMPLES_COUNT;
-			if (current - new_I>AMPER_DIFF_TO_REFRASH)
+		//если источник запущен - меряем значения
+		if (start_output){
+			if (iter>=I_SAMPLES_COUNT)
 			{
-				if (new_I < 999)
-					current = new_I;
-				else
-					current = 0;
-				display_changed|=16;
+				uint32_t new_I = 0;
+				//сортируем массив намерянных значений чтобы найти медиану
+				for (int s=0; s < I_SAMPLES_COUNT-1; s++ )
+					for (int s1=s+1; s1 < I_SAMPLES_COUNT; s1++ )
+						if (samples[s]>samples[s1])
+						{
+							uint16_t buff = samples[s1];
+							samples[s1] = samples[s];
+							samples[s] = buff;
+						}
+				iter = I_SAMPLES_COUNT/2;
+				new_I = samples[iter];
+				if (voltage == 0) new_I = 0;
+				if ((new_I < I_LOW_LIMIT) || (current - new_I>AMPER_DIFF_TO_REFRASH))
+				{
+					if (new_I < 999)
+						current = new_I;
+					else
+						current = 0;
+					
+					display_changed|=16;
+				}
+				iter = 0;
 			}
-			iter = 0;
+			else
+			{
+				// 2В - 100А
+				samples[iter] = (analogRead(65)-correction)/4;
+				// 2В - 400А
+				samples[iter] = (analogRead(65)-correction);
+				iter++;
+			}
 		}
+		// Если источник не запущен - меряем значение коррекции, которое будем вычитать из полученного во время работы.
 		else
 		{
-			// Меряем на пине PC1 относительного внутреннего ИОН-а 2.56
-			samples[iter] = analogRead(193)*4.296875;
-			iter++;
+			correction = analogRead(65);
+			current = 0;
 		}
-		
-		//Uвых =  UвхR2/(R1 + R2)
-		//U=(опорное напряжение*значение АЦП*коэффициент делителя)/число разрядов АЦП
-		// Меряем на пине РС0 относительно напряжения питания
-		// делитель - 2.2кОм/8.2кОм
-		uint16_t new_V = (25*analogRead(64))/1024;
+		adc_state = 0;
+	}
+	if (adc_state == ADC_REFRASH_DURATION/2)
+	{
+		uint16_t new_V = (analogRead(64))/10.24;
 		if (voltage - new_V>VOLTAGE_DIFF_TO_REFRASH)
 		{
-			voltage = new_V;
+			if (new_V <= VOLTAGE_DIFF_TO_REFRASH) voltage = 0;
+			else voltage = new_V;
 			display_changed|=16;
 		}
-		
-		adc_state = 0;
 	}
 
 	static bool start_state = false;
-	if (millis()<START_IGNORE_TIME)
-	return;
-	if ((START_BUTT_PIN & (1 << START_BUTT))&&(start_state))
+	static uint32_t butt_press_time = 0;
+	static bool press_flag = false;
+	if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
 	{
-		start_state = false;
-	}
-	else if ((!(START_BUTT_PIN & (1 << START_BUTT)))&&(!start_state))
-	{
-		start_state = true;
+		press_flag = false;
 		millis_reset();
+		ah_calc_last_time = 0;
 		if (start_output)
 		{
 			start_output = 0;
 			timer_state = 0;
-			ah_calc_last_time = 0;
 		}
 		else
 		{
 			start_output = 1;
 			if (timer_ena)
-				timer_state = 1;
+			timer_state = 1;
 		}
 		display_changed|=4;
+
+	}
+	if ((START_BUTT_PIN & (1 << START_BUTT))&&(start_state))
+	{
+		start_state = false;
+		press_flag = false;
+	}
+	else if ((!(START_BUTT_PIN & (1 << START_BUTT)))&&(!start_state))
+	{
+		butt_press_time = millis();
+		start_state = true;
+		press_flag = true;
 	}
 
 	//// Меряем на пине PC1 относительного внутреннего ИОН-а 2.56
@@ -546,15 +579,18 @@ void encoderButtStates()
 		if (timer_ena)
 		{
 			timer_ena = 0;
+			display_changed|=16;
 			timer_state = 0;
 		}
 		else
 		{
 			timer_ena = 1;
+			display_changed|=16;
 			//если включить таймер при включенном источнике - начинаем сразу считать
 			if (start_output)
 			{
 				millis_reset();
+				ah_calc_last_time = 0;
 				timer_state = 1;
 			}
 		}
@@ -584,7 +620,16 @@ void encoderButtStates()
 	if ((AH_BUTT_PIN & (1 << AH_BUTT))&&(enc_state2))
 	{
 		if ((millis()-enc_butt_press_time2>PRESS_TIME)&&(millis()-enc_butt_press_time2<LONG_PRESS_TIME))
-			ChangeAhResolution();
+		{
+			//если в момент нажатия на кнопку энкодера показывается текущее значение ампер часов
+			// - не меняем разрешение, а только показываем установленное значение
+			if (ah_butt_resolution_change == 0)
+				ah_butt_resolution_change = 1;
+			else {
+				ah_butt_resolution_change = 2;
+				ChangeAhResolution();
+			}
+		}
 		enc_state2 = false;
 		press_flag2 = false;
 	}
