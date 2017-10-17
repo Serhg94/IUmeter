@@ -28,11 +28,15 @@
 #define TIMER_LED_BLINK_DURATION 10000
 #define TIMER_LED_FASTBLINK_DURATION 5000
 #define DISPLAY_REFRASH_DURATION 3000
-#define SAVE_TIME_DURATION 50000
+#define SAVE_PARAMS_DURATION 50000
 
 //99 часов
 #define MAX_TIMER_TIME 359999
 #define MIN_TIMER_TIME 10
+#define MAX_FREQ 10
+#define MIN_FREQ 0.2
+#define MAX_D_TIME 90
+#define MIN_D_TIME 10
 
 #define START_IGNORE_TIME 250
 #define PRESS_TIME 100
@@ -47,8 +51,16 @@
 #define START_OUT_DDR DDRB
 #define START_OUT_PORT PORTB
 #define START_OUT 5
+//выход на включение положительной диагонали - бывший вход измерения тока
+#define POSITIVE_OUT_DDR DDRC
+#define POSITIVE_OUT_PORT PORTC
+#define POSITIVE_OUT 1
+//выход на включение отрицательной диагонали - бывший вход измерения напряжения 
+#define NEGATIVE_OUT_DDR DDRC
+#define NEGATIVE_OUT_PORT PORTC
+#define NEGATIVE_OUT 0
 
-//нижний диод 
+//нижний диод
 #define TIM_LED_DDR DDRD
 #define TIM_LED_PORT PORTD
 #define TIM_LED 0
@@ -72,6 +84,9 @@
 #define TIMER_BUTT_PIN PINB
 #define TIMER_BUTT 4
 
+
+#define ENC_RIGHT_SPIN LEFT_SPIN
+#define ENC_LEFT_SPIN RIGHT_SPIN 
 //порт и выводы к которым подключен энкодер установки счетчика ампер часов
 #define PORT_EncT 	PORTD
 #define PIN_EncT 	PIND
