@@ -72,25 +72,21 @@ void init()
 	_delay_ms(50);
 	lcdInit();
 	wdt_reset();
-	timer_time=eeprom_read_word(0) << 16;
-	timer_time+=eeprom_read_word(3);
+	timer_time=eeprom_read_dword(0);
 	uint8_t buff = eeprom_read_byte(6);
 	if (buff == 1)
 		timer_ena = 1;
 	else eeprom_write_byte(6, (uint8_t)(1));
-	set_ah = eeprom_read_byte(7)<< 16;
-	set_ah += eeprom_read_byte(10);
+	set_ah = eeprom_read_dword(7);
 	if ((timer_time>MAX_TIMER_TIME)||(timer_time<MIN_TIMER_TIME))
 	{
 		timer_time = 10;
-		eeprom_write_word(0, (uint16_t)(0));
-		eeprom_write_word(3, (uint16_t)(10));
+		eeprom_write_dword(0, (uint32_t)(10));
 	}
 	if ((set_ah>999999))
 	{
 		set_ah = 50;
-		eeprom_write_word(7, (uint16_t)(0));
-		eeprom_write_word(10, (uint16_t)(500));
+		eeprom_write_dword(7, (uint32_t)(500));
 	}
 	buff = eeprom_read_byte(12);
 	if (buff == 1)
@@ -361,8 +357,7 @@ void periodicProcess()
 			ah_butt_resolution = 1;
 			abr_state = 0;
 			display_changed|=128;
-			eeprom_write_word(7, (uint16_t)(set_ah & 0xFFFF));
-			eeprom_write_word(10, (uint16_t)(set_ah & 0xFFFF0000 >> 16));
+			eeprom_update_dword(7, set_ah);
 		}
 	}
 	
@@ -444,17 +439,16 @@ void periodicProcess()
 		{
 			save_param = 0;
 			if (changed_params & TIMER_TIME){
-				eeprom_write_word(0, (uint16_t)(timer_time & 0xFFFF));
-				eeprom_write_word(3, (uint16_t)(timer_time & 0xFFFF0000 >> 16));
+				eeprom_update_dword(0, timer_time);
 			}
 			if (changed_params & DEAD_TIME){
-				eeprom_write_word(13, dead_time);
+				eeprom_update_word(13, dead_time);
 			}
 			if (changed_params & D_TIME){
-				eeprom_write_byte(17, d_time_percents);
+				eeprom_update_byte(17, d_time_percents);
 			}
 			if (changed_params & FREQ){
-				eeprom_write_word(18, (uint16_t)(frequency*10));
+				eeprom_update_word(18, (uint16_t)(frequency*10));
 			}
 			changed_params = NONE;
 		}
@@ -473,7 +467,7 @@ void encoderProcess()
 	//обработка вращения энкодера установки ампер часов
 	int rotation = ENC_PollEncoderT();
 	if (current_screen == 1){
-		if (rotation==ENC_RIGHT_SPIN)
+		if (rotation==ENC_LEFT_SPIN)
 		if (set_ah>0)
 		{
 			if (set_ah<ah_butt_resolution) set_ah = 0;
@@ -482,7 +476,7 @@ void encoderProcess()
 			ah_butt_resolution_change = 1;
 			abr_state = 0;
 		}
-		if (rotation==ENC_LEFT_SPIN)
+		if (rotation==ENC_RIGHT_SPIN)
 		if (set_ah<999999)
 		{
 			if (set_ah+ah_butt_resolution>999999) return;
@@ -564,7 +558,7 @@ void encoderProcess()
 	}
 	rotation = ENC_PollEncoder();
 	if (current_screen == 1){		
-		if (rotation==ENC_RIGHT_SPIN)
+		if (rotation==ENC_LEFT_SPIN)
 		if (timer_time>MIN_TIMER_TIME) 
 		{
 			if (timer_time-MIN_TIMER_TIME<enc_butt_resolution) return;
@@ -573,7 +567,7 @@ void encoderProcess()
 			changed_params |= 1;
 			save_param = 1;
 		}
-		if (rotation==ENC_LEFT_SPIN)
+		if (rotation==ENC_RIGHT_SPIN)
 		if (timer_time<MAX_TIMER_TIME) 
 		{
 			if (timer_time+enc_butt_resolution>MAX_TIMER_TIME) return;
@@ -585,13 +579,13 @@ void encoderProcess()
 	}
 	else if (current_screen == 2){
 		if (revers_enable == false) return;
-		if (rotation==ENC_LEFT_SPIN){
+		if (rotation==ENC_RIGHT_SPIN){
 			if (current_param == DEAD_TIME) current_param = FREQ;
 			else current_param /= 2;
 			enc_butt_resolution_change = true;
 			display_changed|=2;
 		}
-		else if (rotation==ENC_RIGHT_SPIN){
+		else if (rotation==ENC_LEFT_SPIN){
 			if (current_param == FREQ) current_param = DEAD_TIME;
 			else current_param *= 2;
 			enc_butt_resolution_change = true;
@@ -855,16 +849,16 @@ inline void LongPressLeft()
 				timer_state = 1;
 			}
 		}
-		eeprom_write_byte(6, timer_ena);
+		eeprom_update_byte(6, timer_ena);
 	}
 	else{
 		if (revers_enable){
 			revers_enable = false;
-			eeprom_write_byte(12, (uint8_t)(0));
+			eeprom_update_byte(12, (uint8_t)(0));
 		}
 		else {
 			revers_enable = true;
-			eeprom_write_byte(12, (uint8_t)(1));
+			eeprom_update_byte(12, (uint8_t)(1));
 		}
 		display_changed |= 16;
 	}

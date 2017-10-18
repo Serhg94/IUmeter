@@ -85,8 +85,8 @@
 #define TIMER_BUTT 4
 
 
-#define ENC_RIGHT_SPIN LEFT_SPIN
-#define ENC_LEFT_SPIN RIGHT_SPIN 
+#define ENC_RIGHT_SPIN RIGHT_SPIN
+#define ENC_LEFT_SPIN LEFT_SPIN 
 //порт и выводы к которым подключен энкодер установки счетчика ампер часов
 #define PORT_EncT 	PORTD
 #define PIN_EncT 	PIND
