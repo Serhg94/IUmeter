@@ -370,7 +370,10 @@ void periodicProcess()
 		if (meter_state >= AH_CALCULATE_DIV)
 		{
 			static double diff = 0;
-			diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current;
+			if (revers_enable)
+				diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current*(1-(double)dead_time/(double)period);		
+			else
+				diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current;
 			if (diff>0)
 			{
 				uint32_t udiff = (uint32_t)diff;
@@ -660,7 +663,7 @@ void logicProcess()
 		else {
 			start_output = true;
 			out_state = OFF;
-			positive_output = false;
+			positive_output = true;
 			negative_output = false;
 		}
 	}
@@ -700,14 +703,14 @@ void setStates()
 void readStates()
 {
 	static uint16_t samples[I_SAMPLES_COUNT];
-	static uint16_t correction = 0;
+	//static uint16_t correction = 0;
 	static uint8_t iter = 0;
 	static uint16_t adc_state = 0;
 	adc_state++;
 	if (adc_state == ADC_REFRASH_DURATION)
 	{
-		//если источник запущен - меряем значения
-		if (start_input){
+		//если источник запущен и сейчас не мертвое время - меряем значения
+		if ((positive_output)||(negative_output)){
 			if (iter>=I_SAMPLES_COUNT)
 			{
 				uint32_t new_I = 0;
@@ -738,7 +741,7 @@ void readStates()
 			{
 				//АДС6 (70) - ток
 				// 2В - 100А
-				samples[iter] = (analogRead(70)-correction)/4;
+				samples[iter] = (analogRead(70))/4;
 				// 2В - 400А
 				//samples[iter] = (analogRead(65)-correction);
 				iter++;
@@ -747,8 +750,10 @@ void readStates()
 		// Если источник не запущен - меряем значение коррекции, которое будем вычитать из полученного во время работы.
 		else
 		{
-			correction = analogRead(70);
-			current = 0;
+			//correction = analogRead(70);
+			//не сбрасываем ток если сейчас мертвое время
+			if ((out_state != NEG_DEAD)&&(out_state != POS_DEAD))
+				current = 0;
 		}
 		adc_state = 0;
 	}
