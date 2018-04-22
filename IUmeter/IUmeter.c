@@ -456,12 +456,12 @@ void setStates()
 {
 	if (start_output) 
 	{
-		SetBit(START_OUT_PORT, START_OUT);
+		ClearBit(START_OUT_PORT, START_OUT);
 		SetBit(ACT_LED_PORT, ACT_LED);
 	}
 	else
 	{
-		ClearBit(START_OUT_PORT, START_OUT);
+		SetBit(START_OUT_PORT, START_OUT);
 		ClearBit(ACT_LED_PORT, ACT_LED);
 	}
 	
@@ -541,7 +541,7 @@ void readStates()
 	static bool start_state = false;
 	static uint32_t butt_press_time = 0;
 	static bool press_flag = false;
-	if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
+	/*if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
 	{
 		press_flag = false;
 		millis_reset();
@@ -571,9 +571,9 @@ void readStates()
 		butt_press_time = millis();
 		start_state = true;
 		press_flag = true;
-	}
+	}*/
 
-/*   BUTTON MODE
+/*   BUTTON MODE*/
 	if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
 	{
 		press_flag = false;
@@ -588,7 +588,7 @@ void readStates()
 		{
 			start_input = 1;
 			if (timer_ena)
-			timer_state = 1;
+				timer_state = 1;
 		}
 		display_changed|=4;
 
@@ -604,7 +604,7 @@ void readStates()
 		start_state = true;
 		press_flag = true;
 	}
-*/
+
 
 	//// Меряем на пине PC1 относительного внутреннего ИОН-а 2.56
 	//uint32_t new_I = analogRead(193)*4.296875;
