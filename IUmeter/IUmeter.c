@@ -142,18 +142,21 @@ void displayRefrash()
 				uint32_t time;
 				switch (out_state){
 					case POS_PERIOD:
-						time = (positive_period - millis() - last_state_time)/1000;
+						time = (positive_period - millis() + last_state_time)/1000;
 						break;
 					case POS_DEAD:
-						time = (dead_time + 1 - millis() - last_state_time)/1000;
+						time = (dead_time + 1 - millis() + last_state_time)/1000;
 						break;
 					case NEG_PERIOD:
-						time = (negative_period - millis() - last_state_time)/1000;
+						time = (negative_period - millis() + last_state_time)/1000;
 						break;
 					case NEG_DEAD:
-						time = (dead_time + 1 - millis() - last_state_time)/1000;
+						time = (dead_time + 1 - millis() + last_state_time)/1000;
 						break;
 				}
+				// Если время больше того, что может влезть на экран - убираем его)
+				if (time > 359999)
+					time = 0;
 
 				uint32_t hours = (time/3600);
 				time = time - hours*3600;
@@ -299,10 +302,7 @@ void periodicProcess()
 		if (meter_state >= AH_CALCULATE_DIV)
 		{
 			static double diff = 0;
-			if (revers_enable)
-				diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current*(0.997917);		
-			else
-				diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current;
+			diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current;
 			if (diff>0)
 			{
 				uint32_t udiff = (uint32_t)diff;
@@ -375,17 +375,26 @@ void encoderProcess()
 
 void logicProcess()
 {
+	static bool lcd_restart_once = false;
 	//если включен реверс - надо не просто включить источник, а еще и управлять направлением
 	if (start_input)
 	{
 		if (revers_enable)
 		{
+			if (lcd_restart_once && millis() - last_state_time  >= PRESS_TIME)
+			{
+				lcdInit();
+				//customSumbolLoad();
+				display_changed = 1;
+				lcd_restart_once = false;
+			}
 			switch (out_state){
 				case OFF:
 					last_state_time = millis();
 					out_state = POS_PERIOD;
 					positive_output = true;
 					start_output = true;
+					lcd_restart_once = true;
 				break;
 				case POS_PERIOD:
 					if (millis() - last_state_time >= positive_period){
@@ -393,6 +402,7 @@ void logicProcess()
 						out_state = POS_DEAD;
 						positive_output = false;
 						start_output = false;
+						lcd_restart_once = true;
 					}
 				break;
 				case POS_DEAD:
@@ -401,6 +411,7 @@ void logicProcess()
 						out_state = NEG_PERIOD;
 						negative_output = true;
 						start_output = true;
+						lcd_restart_once = true;
 					}
 				break;
 				case NEG_PERIOD:
@@ -409,6 +420,7 @@ void logicProcess()
 						out_state = NEG_DEAD;
 						negative_output = false;
 						start_output = false;
+						lcd_restart_once = true;
 					}
 				break;
 				case NEG_DEAD:
@@ -417,6 +429,7 @@ void logicProcess()
 						out_state = POS_PERIOD;
 						positive_output = true;
 						start_output = true;
+						lcd_restart_once = true;
 					}
 				break;
 			}
@@ -504,9 +517,7 @@ void readStates()
 		else
 		{
 			//correction = analogRead(70);
-			//не сбрасываем ток если сейчас мертвое время
-			if ((out_state != NEG_DEAD)&&(out_state != POS_DEAD))
-				current = 0;
+			current = 0;
 		}
 		adc_state = 0;
 	}
