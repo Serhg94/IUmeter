@@ -1,4 +1,4 @@
-/*
+п»ї/*
  * IncFile1.h
  *
  * Created: 01.11.2016 0:27:42
@@ -30,55 +30,57 @@
 #define DISPLAY_REFRASH_DURATION 3000
 #define SAVE_PARAMS_DURATION 50000
 
-//99 часов
+//99 С‡Р°СЃРѕРІ
 #define MAX_TIMER_TIME 359999
 #define MIN_TIMER_TIME 10
 #define MAX_FREQ 10
-#define MIN_FREQ 0.2
-#define MAX_D_TIME 90
-#define MIN_D_TIME 10
+#define MIN_FREQ 1
+#define MAX_PERIOD 100000
+#define MIN_PERIOD 1
+#define MAX_D_TIME 75
+#define MIN_D_TIME 1
 
 #define START_IGNORE_TIME 250
 #define PRESS_TIME 100
 #define LONG_PRESS_TIME 1000
 
-//кнопка запуска источника
+//РєРЅРѕРїРєР° Р·Р°РїСѓСЃРєР° РёСЃС‚РѕС‡РЅРёРєР°
 #define START_BUTT_DDR DDRD
 #define START_BUTT_PORT PORTD
 #define START_BUTT_PIN PIND
 #define START_BUTT 2
-//выход на управление источником - бывших торч он аут
+//РІС‹С…РѕРґ РЅР° СѓРїСЂР°РІР»РµРЅРёРµ РёСЃС‚РѕС‡РЅРёРєРѕРј - Р±С‹РІС€РёС… С‚РѕСЂС‡ РѕРЅ Р°СѓС‚
 #define START_OUT_DDR DDRB
 #define START_OUT_PORT PORTB
 #define START_OUT 5
-//выход на включение положительной диагонали - бывший вход измерения тока
+//РІС‹С…РѕРґ РЅР° РІРєР»СЋС‡РµРЅРёРµ РїРѕР»РѕР¶РёС‚РµР»СЊРЅРѕР№ РґРёР°РіРѕРЅР°Р»Рё - Р±С‹РІС€РёР№ РІС…РѕРґ РёР·РјРµСЂРµРЅРёСЏ С‚РѕРєР°
 #define POSITIVE_OUT_DDR DDRC
 #define POSITIVE_OUT_PORT PORTC
 #define POSITIVE_OUT 1
-//выход на включение отрицательной диагонали - бывший вход измерения напряжения 
+//РІС‹С…РѕРґ РЅР° РІРєР»СЋС‡РµРЅРёРµ РѕС‚СЂРёС†Р°С‚РµР»СЊРЅРѕР№ РґРёР°РіРѕРЅР°Р»Рё - Р±С‹РІС€РёР№ РІС…РѕРґ РёР·РјРµСЂРµРЅРёСЏ РЅР°РїСЂСЏР¶РµРЅРёСЏ 
 #define NEGATIVE_OUT_DDR DDRC
 #define NEGATIVE_OUT_PORT PORTC
 #define NEGATIVE_OUT 0
 
-//нижний диод
+//РЅРёР¶РЅРёР№ РґРёРѕРґ
 #define TIM_LED_DDR DDRD
 #define TIM_LED_PORT PORTD
 #define TIM_LED 0
-//средний диод
+//СЃСЂРµРґРЅРёР№ РґРёРѕРґ
 #define AH_ALERT_DDR DDRD
 #define AH_ALERT_PORT PORTD
 #define AH_ALERT 1
-//верхних диод
+//РІРµСЂС…РЅРёС… РґРёРѕРґ
 #define ACT_LED_DDR DDRB
 #define ACT_LED_PORT PORTB
 #define ACT_LED 3
 
-//кнопка энкодера установки ампер часов
+//РєРЅРѕРїРєР° СЌРЅРєРѕРґРµСЂР° СѓСЃС‚Р°РЅРѕРІРєРё Р°РјРїРµСЂ С‡Р°СЃРѕРІ
 #define AH_BUTT_DDR DDRD
 #define AH_BUTT_PORT PORTD
 #define AH_BUTT_PIN PIND
 #define AH_BUTT 3
-//кнопка энкодера установки времени таймера
+//РєРЅРѕРїРєР° СЌРЅРєРѕРґРµСЂР° СѓСЃС‚Р°РЅРѕРІРєРё РІСЂРµРјРµРЅРё С‚Р°Р№РјРµСЂР°
 #define TIMER_BUTT_DDR DDRB
 #define TIMER_BUTT_PORT PORTB
 #define TIMER_BUTT_PIN PINB
@@ -87,36 +89,36 @@
 
 #define ENC_RIGHT_SPIN RIGHT_SPIN 
 #define ENC_LEFT_SPIN LEFT_SPIN
-//порт и выводы к которым подключен энкодер установки счетчика ампер часов
+//РїРѕСЂС‚ Рё РІС‹РІРѕРґС‹ Рє РєРѕС‚РѕСЂС‹Рј РїРѕРґРєР»СЋС‡РµРЅ СЌРЅРєРѕРґРµСЂ СѓСЃС‚Р°РЅРѕРІРєРё СЃС‡РµС‚С‡РёРєР° Р°РјРїРµСЂ С‡Р°СЃРѕРІ
 #define PORT_EncT 	PORTD
 #define PIN_EncT 	PIND
 #define DDR_EncT 	DDRD
-#define Pin1_EncT 	4
-#define Pin2_EncT 	5
-//порт и выводы к которым подключен энкодер установки таймера
+#define Pin1_EncT 	5
+#define Pin2_EncT 	4
+//РїРѕСЂС‚ Рё РІС‹РІРѕРґС‹ Рє РєРѕС‚РѕСЂС‹Рј РїРѕРґРєР»СЋС‡РµРЅ СЌРЅРєРѕРґРµСЂ СѓСЃС‚Р°РЅРѕРІРєРё С‚Р°Р№РјРµСЂР°
 #define PORT_Enc	PORTD
 #define PIN_Enc 	PIND
 #define DDR_Enc 	DDRD
-#define Pin1_Enc 	6
-#define Pin2_Enc 	7
+#define Pin1_Enc 	7
+#define Pin2_Enc 	6
 /*
-	Здесь определяются выводы контроллера, подключенные к LCD. Выводы данных
-	должны занимать один порт. Порядок выводов любой. Также на одном порту
-	должны располагаться управляющие выводы. Тоже в любом порядке, не обяза-
-	тельно подряд.
+	Р—РґРµСЃСЊ РѕРїСЂРµРґРµР»СЏСЋС‚СЃСЏ РІС‹РІРѕРґС‹ РєРѕРЅС‚СЂРѕР»Р»РµСЂР°, РїРѕРґРєР»СЋС‡РµРЅРЅС‹Рµ Рє LCD. Р’С‹РІРѕРґС‹ РґР°РЅРЅС‹С…
+	РґРѕР»Р¶РЅС‹ Р·Р°РЅРёРјР°С‚СЊ РѕРґРёРЅ РїРѕСЂС‚. РџРѕСЂСЏРґРѕРє РІС‹РІРѕРґРѕРІ Р»СЋР±РѕР№. РўР°РєР¶Рµ РЅР° РѕРґРЅРѕРј РїРѕСЂС‚Сѓ
+	РґРѕР»Р¶РЅС‹ СЂР°СЃРїРѕР»Р°РіР°С‚СЊСЃСЏ СѓРїСЂР°РІР»СЏСЋС‰РёРµ РІС‹РІРѕРґС‹. РўРѕР¶Рµ РІ Р»СЋР±РѕРј РїРѕСЂСЏРґРєРµ, РЅРµ РѕР±СЏР·Р°-
+	С‚РµР»СЊРЅРѕ РїРѕРґСЂСЏРґ.
 */ 
 
-#define LCDDATAPORT			PORTC					// Порт и пины,
-#define LCDDATADDR			DDRC					// к которым подключены
-#define LCDDATAPIN			PINC					// сигналы D4-D7.
+#define LCDDATAPORT			PORTC					// РџРѕСЂС‚ Рё РїРёРЅС‹,
+#define LCDDATADDR			DDRC					// Рє РєРѕС‚РѕСЂС‹Рј РїРѕРґРєР»СЋС‡РµРЅС‹
+#define LCDDATAPIN			PINC					// СЃРёРіРЅР°Р»С‹ D4-D7.
 #define LCD_D4				2
 #define LCD_D5				3
 #define LCD_D6				4
 #define LCD_D7				5
 
-#define LCDCONTROLPORT		PORTB					// Порт и пины,
-#define LCDCONTROLDDR		DDRB					// к которым подключены
-#define LCD_RS				0						// сигналы RS, RW и E.
+#define LCDCONTROLPORT		PORTB					// РџРѕСЂС‚ Рё РїРёРЅС‹,
+#define LCDCONTROLDDR		DDRB					// Рє РєРѕС‚РѕСЂС‹Рј РїРѕРґРєР»СЋС‡РµРЅС‹
+#define LCD_RS				0						// СЃРёРіРЅР°Р»С‹ RS, RW Рё E.
 #define LCD_RW				1
 #define LCD_E				2
 

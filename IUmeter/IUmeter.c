@@ -1,4 +1,4 @@
-/*
+п»ї/*
  * PlasmaController.cpp
  *
  * Created: 18.06.2017 18:03:13
@@ -16,9 +16,24 @@
 #include "lcd-library.h"
 #include "encoder.h"
 #include "millis.h"
+#include "timer_one.h"
 
-enum { NONE = 0, TIMER_TIME = 1, DEAD_TIME = 2, D_TIME = 4, FREQ = 8};
-enum {OFF, POS_PERIOD, POS_DEAD, NEG_PERIOD, NEG_DEAD};
+enum REVERS_PARAMS { 
+	NONE = 0, 
+	TIMER_TIME = 1, 
+	POS_TIME = 2, 
+	POS_TIME_MS = 4, 
+	NEG_TIME = 8, 
+	NEG_TIME_MS = 16,  
+	D_TIME = 32, 
+	FREQ = 64
+};
+#define GROUP1_BEG POS_TIME
+#define GROUP1_END NEG_TIME_MS
+#define GROUP2_BEG D_TIME
+#define GROUP2_END FREQ
+
+enum STATES {OFF, POS_PERIOD, POS_DEAD, NEG_PERIOD, NEG_DEAD};
 
 uint32_t timer_time;
 uint32_t lostcycles = 0;
@@ -35,19 +50,17 @@ uint32_t enc_butt_press_time2;
 uint32_t ah_calc_last_time = 0;
 
 bool revers_enable = false;
-uint16_t dead_time;
-float frequency;
+volatile bool impuls_enable = false;
+uint8_t frequency;
 uint8_t d_time_percents;
-uint16_t period;
-uint16_t positive_period;
-uint16_t negative_period; 
-uint8_t out_state = OFF;
+uint32_t positive_period;
+uint32_t negative_period; 
 
 bool ah_alert_output = 0;
 bool start_input = 0;
 bool start_output = 0;
-bool positive_output = 0;
-bool negative_output = 0;
+volatile bool positive_output = 0;
+volatile bool negative_output = 0;
 bool tim_led = 0;
 bool timer_ena = 0;
 uint8_t timer_state = 0;
@@ -65,6 +78,24 @@ uint8_t current_param = NONE;
 
 EMPTY_INTERRUPT (ADC_vect);
 
+void disableOutput()
+{
+	if (impuls_enable)
+	{
+		if (positive_output) ClearBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
+		else if (negative_output) ClearBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
+	}
+}
+
+void enableOutput()
+{
+	if (impuls_enable)
+	{
+		if (positive_output) SetBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
+		else if (negative_output) SetBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
+	}
+}
+
 void init()
 {
 	wdt_enable(WDTO_500MS);
@@ -72,11 +103,15 @@ void init()
 	_delay_ms(50);
 	lcdInit();
 	wdt_reset();
+	
+	// Р§РёС‚Р°РµРј РїР°СЂР°РјРµС‚СЂС‹ СЂР°Р±РѕС‚С‹ РёР· СЌРЅРµСЂРіРѕРЅРµР·Р°РІРёСЃРёРјРѕР№ РїР°РјСЏС‚Рё - РµСЃР»Рё С‚Р°Рј РјСѓСЃРѕСЂ - РІС‹СЃС‚Р°РІР»СЏРµРј Р·РЅР°С‡РµРЅРёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
 	timer_time=eeprom_read_dword(0);
 	uint8_t buff = eeprom_read_byte(6);
 	if (buff == 1)
 		timer_ena = 1;
-	else eeprom_write_byte(6, (uint8_t)(1));
+	else if (buff == 0)
+		timer_ena = 0;
+	else eeprom_write_byte(6, (uint8_t)(0));
 	set_ah = eeprom_read_dword(7);
 	if ((timer_time>MAX_TIMER_TIME)||(timer_time<MIN_TIMER_TIME))
 	{
@@ -91,59 +126,81 @@ void init()
 	buff = eeprom_read_byte(12);
 	if (buff == 1)
 		revers_enable = 1;
-	else eeprom_write_byte(12, (uint8_t)(1));
-	dead_time=eeprom_read_word(13);
+	else if (buff == 0)
+		revers_enable = 0;
+	else eeprom_write_byte(12, (uint8_t)(0));
+	
+	buff = eeprom_read_byte(13);
+	if (buff == 1)
+		impuls_enable = 1;
+	else if (buff == 0)
+		impuls_enable = 0;
+	else eeprom_write_byte(13, (uint8_t)(0));
+	
+	frequency=((uint8_t)eeprom_read_word(14));
+	if ((frequency>MAX_FREQ)||(frequency<MIN_FREQ))
+	{
+		frequency = 1;
+		eeprom_write_byte(14, (uint8_t)(1));
+	}
+	
 	d_time_percents=eeprom_read_byte(17);
 	if ((d_time_percents>MAX_D_TIME)||(d_time_percents<MIN_D_TIME))
 	{
 		d_time_percents = 50;
 		eeprom_write_byte(17, (uint8_t)(50));
 	}
-	frequency=((float)eeprom_read_word(18))/10;
-	if ((frequency>MAX_FREQ)||(frequency<MIN_FREQ))
+	
+	positive_period = eeprom_read_dword(19);
+	if ((positive_period>MAX_PERIOD)||(positive_period<MIN_PERIOD))
 	{
-		frequency = 1;
-		eeprom_write_byte(18, (uint8_t)(10));
+		positive_period = 10;
+		eeprom_write_dword(19, (uint32_t)(10));
 	}
-	period = 1000*(1/frequency);
-	positive_period = period*((float)d_time_percents/100);
-	negative_period = period*(1-(float)d_time_percents/100);
-	if (dead_time > positive_period - 10 || dead_time > negative_period - 10){
-		dead_time = positive_period < negative_period ? positive_period-10 : negative_period -10;
-		eeprom_write_word(13, dead_time);
+	
+	negative_period = eeprom_read_dword(23);
+	if ((negative_period>MAX_PERIOD)||(negative_period<MIN_PERIOD))
+	{
+		negative_period = 10;
+		eeprom_write_dword(23, (uint32_t)(10));
 	}
 
 
 	millis_init();
 	millis_resume();
+	
+	attachCompareInterrupt(disableOutput);
+	attachOverInterrupt(enableOutput);
+	initialize(1000000 / frequency);
+	setDuty(d_time_percents*10);
 
-	//выход START
+	//РІС‹С…РѕРґ START
 	SetBit(START_OUT_DDR, START_OUT);
-	//нормально запитан
-	SetBit(START_OUT_PORT, START_OUT);
-	//выход положительной диагонали
+	//РЅРѕСЂРјР°Р»СЊРЅРѕ СЂР°СЃРїРёС‚Р°РЅ
+	ClearBit(START_OUT_PORT, START_OUT);
+	//РІС‹С…РѕРґ РїРѕР»РѕР¶РёС‚РµР»СЊРЅРѕР№ РґРёР°РіРѕРЅР°Р»Рё
 	SetBit(POSITIVE_OUT_DDR, POSITIVE_OUT);
 	SetBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
-	//выход отрицательной диагонали
+	//РІС‹С…РѕРґ РѕС‚СЂРёС†Р°С‚РµР»СЊРЅРѕР№ РґРёР°РіРѕРЅР°Р»Рё
 	SetBit(NEGATIVE_OUT_DDR, NEGATIVE_OUT);
 	SetBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
-	//диод активности
+	//РґРёРѕРґ Р°РєС‚РёРІРЅРѕСЃС‚Рё
 	SetBit(ACT_LED_DDR, ACT_LED);
 	SetBit(ACT_LED_PORT, ACT_LED);
-	//диод счетчика AH
+	//РґРёРѕРґ СЃС‡РµС‚С‡РёРєР° AH
 	SetBit(AH_ALERT_DDR, AH_ALERT);
 	SetBit(AH_ALERT_PORT, AH_ALERT);
-	//диод таймера
+	//РґРёРѕРґ С‚Р°Р№РјРµСЂР°
 	SetBit(TIM_LED_DDR, TIM_LED);
 	SetBit(TIM_LED_PORT, TIM_LED);
 	
-	//вход INT0 - кнопка старт
+	//РІС…РѕРґ INT0 - РєРЅРѕРїРєР° СЃС‚Р°СЂС‚
 	ClearBit(START_BUTT_DDR, START_BUTT);
 	SetBit(START_BUTT_PORT, START_BUTT);
-	//вход INT1 - кнопка энкодера
+	//РІС…РѕРґ INT1 - РєРЅРѕРїРєР° СЌРЅРєРѕРґРµСЂР°
 	ClearBit(TIMER_BUTT_DDR, TIMER_BUTT);
 	SetBit(TIMER_BUTT_PORT, TIMER_BUTT);
-	//вход INT1 - кнопка энкодера AH
+	//РІС…РѕРґ INT1 - РєРЅРѕРїРєР° СЌРЅРєРѕРґРµСЂР° AH
 	ClearBit(AH_BUTT_DDR, AH_BUTT);
 	SetBit(AH_BUTT_PORT, AH_BUTT);
 
@@ -174,7 +231,7 @@ void displayRefrash()
 				summary_tr = set_ah;
 			else
 				summary_tr = summary_ah;
-			//мигание элементов времени таймера
+			//РјРёРіР°РЅРёРµ СЌР»РµРјРµРЅС‚РѕРІ РІСЂРµРјРµРЅРё С‚Р°Р№РјРµСЂР°
 			sprintf(stringOne, "I=%03uA U=%02uV A*h", current, voltage);
 			if (timer_ena){
 				uint32_t time;
@@ -182,6 +239,9 @@ void displayRefrash()
 					time = timer_time - millis()/1000;
 				else
 					time = timer_time;
+				// Р•СЃР»Рё РІСЂРµРјСЏ Р±РѕР»СЊС€Рµ С‚РѕРіРѕ, С‡С‚Рѕ РјРѕР¶РµС‚ РІР»РµР·С‚СЊ РЅР° СЌРєСЂР°РЅ - СѓР±РёСЂР°РµРј РµРіРѕ)
+				if (time > 359999)
+					time = 0;
 				uint32_t hours = (time/3600);
 				time = time - hours*3600;
 				uint16_t min = (time/60);
@@ -202,7 +262,7 @@ void displayRefrash()
 			if (ah_butt_resolution_change>0)
 			{
 				stringTwo[9] = '>';
-				//мигание цифрой в числе установленных ампер часов
+				//РјРёРіР°РЅРёРµ С†РёС„СЂРѕР№ РІ С‡РёСЃР»Рµ СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅС‹С… Р°РјРїРµСЂ С‡Р°СЃРѕРІ
 				if (ah_butt_resolution_change==2)
 				switch (ah_butt_resolution)
 				{
@@ -228,30 +288,54 @@ void displayRefrash()
 		}
 		else
 		{
-			if (revers_enable)
+			uint16_t pos_h = positive_period / 1000;
+			uint16_t pos_l = positive_period % 1000;
+			uint16_t neg_h = negative_period / 1000;
+			uint16_t neg_l = negative_period % 1000;
+			sprintf(stringOne, "P%03u%03ums D=%02u%% ", pos_h, pos_l, d_time_percents);
+			sprintf(stringTwo, "N%03u%03ums F=%02ukH", neg_h, neg_l, frequency);
+			if (enc_butt_resolution_change && current_param)
+			switch (current_param){
+				case POS_TIME:
+				sprintf(stringOne, "P   %03ums D=%02u%% ", pos_l, d_time_percents);
+				break;
+				case POS_TIME_MS:
+				sprintf(stringOne, "P%03u   ms D=%02u%% ", pos_h, d_time_percents);
+				break;
+				case NEG_TIME:
+				sprintf(stringTwo, "N   %03ums F=%02ukH", neg_l, frequency);
+				break;
+				case NEG_TIME_MS:
+				sprintf(stringTwo, "N%03u   ms F=%02ukH", neg_h, frequency);
+				break;
+				case FREQ:
+				sprintf(stringTwo, "N%03u%03ums F=  kH", neg_h, neg_l);
+				break;
+				case D_TIME:
+				sprintf(stringOne, "P%03u%03ums D=  %% ", pos_h, pos_l);
+				break;
+			}
+			if (!revers_enable)
 			{
-				int d1 = frequency;            // Get the integer part (678).
-				float f2 = frequency - d1;     // Get fractional part (678.0123 - 678 = 0.0123).
-				int d2 = f2 * 10;   // Turn into integer (123).
-				sprintf(stringOne, "DEAD TIME=%04ums", dead_time);
-				sprintf(stringTwo, "D=%02u%% F=%02d.%01dHz  ", d_time_percents, d1, d2);
-				if (enc_butt_resolution_change && current_param)
-					switch (current_param){
-						case DEAD_TIME:
-							sprintf(stringOne, "DEAD TIME=    ms");
-							break;
-						case FREQ:
-							sprintf(stringTwo, "D=%02u%% F=    Hz  ", d_time_percents);
-							break;
-						case D_TIME:
-							sprintf(stringTwo, "D=  %% F=%02d.%01dHz  ", d1, d2);
-							break;
-					}
-			}	
-			else
+				stringOne[1] = '-';
+				stringOne[2] = '-';
+				stringOne[3] = '-';
+				stringOne[4] = '-';
+				stringOne[5] = '-';
+				stringOne[6] = '-';
+				stringTwo[1] = '-';
+				stringTwo[2] = '-';
+				stringTwo[3] = '-';
+				stringTwo[4] = '-';
+				stringTwo[5] = '-';
+				stringTwo[6] = '-';
+			}
+			if (!impuls_enable)
 			{
-				sprintf(stringOne, "DEAD TIME=----ms");
-				sprintf(stringTwo, "D=--%% F=--.-Hz  ");
+				stringOne[12] = '-';
+				stringOne[13] = '-';
+				stringTwo[12] = '-';
+				stringTwo[13] = '-';
 			}
 		}
 		stringOne[16]=0;
@@ -279,7 +363,8 @@ void ChangeTimeResolution()
 	if (timer_state>0) return;
 	if (enc_butt_resolution == 3600)
 		enc_butt_resolution = 1;
-	else enc_butt_resolution = enc_butt_resolution*60;
+	else 
+		enc_butt_resolution = enc_butt_resolution*60;
 	enc_butt_resolution_change = 1;
 	display_changed|=128;
 }
@@ -306,9 +391,7 @@ int analogRead(int An_pin)
 {
 	ADMUX=An_pin;   
 	ADCSRA=B11000100;	//B11000111-125kHz B11000110-250kHz
-	ADCSRA |= (1 << ( ADIE ));
-	//_delay_us(10);	                                                                      
-	
+	ADCSRA |= (1 << ( ADIE ));                                                                 
 	do sleep_cpu();
 	while( ( (ADCSRA & (1<<ADSC)) != 0 ) );
 	ADCSRA &= ~ (1 << ( ADIE ));
@@ -326,7 +409,7 @@ void periodicProcess()
 	static uint16_t ebr_state;
 	static uint16_t disp_state = 0;
 	
-	//мигнем выбранным разрешением изменения времени таймера
+	//РјРёРіРЅРµРј РІС‹Р±СЂР°РЅРЅС‹Рј СЂР°Р·СЂРµС€РµРЅРёРµРј РёР·РјРµРЅРµРЅРёСЏ РІСЂРµРјРµРЅРё С‚Р°Р№РјРµСЂР°
 	if (enc_butt_resolution_change==0)
 		ebr_state = 0;
 	else
@@ -340,7 +423,7 @@ void periodicProcess()
 		}
 	}
 	
-	//покажем изменяемое время ампер часов
+	//РїРѕРєР°Р¶РµРј РёР·РјРµРЅСЏРµРјРѕРµ РІСЂРµРјСЏ Р°РјРїРµСЂ С‡Р°СЃРѕРІ
 	if (ah_butt_resolution_change==0)
 		abr_state = 0;	
 	else
@@ -363,17 +446,14 @@ void periodicProcess()
 	
 	if (start_input==0)
 		meter_state = 0;
-	//считаем ампер часы
+	//СЃС‡РёС‚Р°РµРј Р°РјРїРµСЂ С‡Р°СЃС‹
 	else
 	{
 		meter_state++;
 		if (meter_state >= AH_CALCULATE_DIV)
 		{
 			static double diff = 0;
-			if (revers_enable)
-				diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current*(1-(double)dead_time/(double)period);		
-			else
-				diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current;
+			diff += (((double)(millis()-ah_calc_last_time))/3600000)*(double)current;
 			if (diff>0)
 			{
 				uint32_t udiff = (uint32_t)diff;
@@ -388,7 +468,7 @@ void periodicProcess()
 	
 	if (timer_state==0)
 		led_state = 0;
-	//если диоду таймера надо мигать - мигаем
+	//РµСЃР»Рё РґРёРѕРґСѓ С‚Р°Р№РјРµСЂР° РЅР°РґРѕ РјРёРіР°С‚СЊ - РјРёРіР°РµРј
 	else 
 	{
 		led_state ++;
@@ -404,7 +484,7 @@ void periodicProcess()
 	}
 	
 	if ((set_ah!=0)&&(start_input))
-	//если диоду оповещения о превышении ампер часов надо мигать - мигаем
+	//РµСЃР»Рё РґРёРѕРґСѓ РѕРїРѕРІРµС‰РµРЅРёСЏ Рѕ РїСЂРµРІС‹С€РµРЅРёРё Р°РјРїРµСЂ С‡Р°СЃРѕРІ РЅР°РґРѕ РјРёРіР°С‚СЊ - РјРёРіР°РµРј
 	{
 		if (set_ah <= summary_ah)
 		{
@@ -419,14 +499,14 @@ void periodicProcess()
 			}
 		}
 		else
-		//тушим диод тревоги, если подняли установленное значение ампер часов
+		//С‚СѓС€РёРј РґРёРѕРґ С‚СЂРµРІРѕРіРё, РµСЃР»Рё РїРѕРґРЅСЏР»Рё СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ Р°РјРїРµСЂ С‡Р°СЃРѕРІ
 			ah_alert_output = 0;
 	}
-	//тушим диод тревоги, если источник не запущен
+	//С‚СѓС€РёРј РґРёРѕРґ С‚СЂРµРІРѕРіРё, РµСЃР»Рё РёСЃС‚РѕС‡РЅРёРє РЅРµ Р·Р°РїСѓС‰РµРЅ
 	else 
 		ah_alert_output = 0;
 	
-	//периодически обновляем содержимое дисплея
+	//РїРµСЂРёРѕРґРёС‡РµСЃРєРё РѕР±РЅРѕРІР»СЏРµРј СЃРѕРґРµСЂР¶РёРјРѕРµ РґРёСЃРїР»РµСЏ
 	disp_state++;
 	if (disp_state == DISPLAY_REFRASH_DURATION)
 	{
@@ -434,7 +514,7 @@ void periodicProcess()
 		displayRefrash();
 	}
 	
-	//при изменении времени - сохраняем время не сразу
+	//РїСЂРё РёР·РјРµРЅРµРЅРёРё РІСЂРµРјРµРЅРё - СЃРѕС…СЂР°РЅСЏРµРј РІСЂРµРјСЏ РЅРµ СЃСЂР°Р·Сѓ
 	if (save_param > 0)
 	{
 		save_param++;
@@ -444,30 +524,26 @@ void periodicProcess()
 			if (changed_params & TIMER_TIME){
 				eeprom_update_dword(0, timer_time);
 			}
-			if (changed_params & DEAD_TIME){
-				eeprom_update_word(13, dead_time);
+			if ((changed_params & POS_TIME) || (changed_params & POS_TIME_MS)){
+				eeprom_write_dword(19, positive_period);
+			}
+			if ((changed_params & NEG_TIME) || (changed_params & NEG_TIME_MS)){
+				eeprom_write_dword(23, negative_period);
 			}
 			if (changed_params & D_TIME){
 				eeprom_update_byte(17, d_time_percents);
 			}
 			if (changed_params & FREQ){
-				eeprom_update_word(18, (uint16_t)(frequency*10));
+				eeprom_update_word(14, (uint8_t)(frequency));
 			}
 			changed_params = NONE;
 		}
 	}
 }
 
-void calculatePeriods()
-{
-	period = 1000*(1/frequency);
-	positive_period = period*((float)d_time_percents/100);
-	negative_period = period - positive_period;
-}
-
 void encoderProcess()             
 {		
-	//обработка вращения энкодера установки ампер часов
+	//РѕР±СЂР°Р±РѕС‚РєР° РІСЂР°С‰РµРЅРёСЏ СЌРЅРєРѕРґРµСЂР° СѓСЃС‚Р°РЅРѕРІРєРё Р°РјРїРµСЂ С‡Р°СЃРѕРІ
 	int rotation = ENC_PollEncoderT();
 	if (current_screen == 1){
 		if (rotation==ENC_LEFT_SPIN)
@@ -488,23 +564,79 @@ void encoderProcess()
 			ah_butt_resolution_change = 1;
 			abr_state = 0;
 		}
-		// энкодер установки времени таймера
+		// СЌРЅРєРѕРґРµСЂ СѓСЃС‚Р°РЅРѕРІРєРё РІСЂРµРјРµРЅРё С‚Р°Р№РјРµСЂР°
 		if (timer_state>0) return;
 	}
 	else if (current_screen == 2){
-		if (revers_enable == false) return;
+		if (revers_enable == false && impuls_enable == false) return;
 		switch (current_param){
-			case DEAD_TIME:
+			case POS_TIME:
 			if (rotation==ENC_RIGHT_SPIN){
-				dead_time++;
-				changed_params |= DEAD_TIME;
-				save_param = 1;
-				display_changed|=2;
+				if (positive_period < MAX_PERIOD-1000){
+					positive_period+=1000;
+					changed_params |= POS_TIME;
+					save_param = 1;
+					display_changed|=2;
+				}
 			}
 			else if (rotation==ENC_LEFT_SPIN){
-				if (dead_time > 0){
-					dead_time--;
-					changed_params |= DEAD_TIME;
+				if (positive_period > MIN_PERIOD+1000){
+					positive_period-=1000;
+					changed_params |= POS_TIME;
+					save_param = 1;
+					display_changed|=2;
+				}
+			}
+			break;
+			case POS_TIME_MS:
+			if (rotation==ENC_RIGHT_SPIN){
+				if (positive_period <= MAX_PERIOD){
+					positive_period++;
+					changed_params |= POS_TIME_MS;
+					save_param = 1;
+					display_changed|=2;
+				}
+			}
+			else if (rotation==ENC_LEFT_SPIN){
+				if (positive_period >= MIN_PERIOD){
+					positive_period--;
+					changed_params |= POS_TIME_MS;
+					save_param = 1;
+					display_changed|=2;
+				}
+			}
+			break;
+			case NEG_TIME:
+			if (rotation==ENC_RIGHT_SPIN){
+				if (negative_period <= MAX_PERIOD-1000){
+					negative_period+=1000;
+					changed_params |= NEG_TIME;
+					save_param = 1;
+					display_changed|=2;
+				}
+			}
+			else if (rotation==ENC_LEFT_SPIN){
+				if (negative_period >= MIN_PERIOD+1000){
+					negative_period-=1000;
+					changed_params |= NEG_TIME;
+					save_param = 1;
+					display_changed|=2;
+				}
+			}
+			break;
+			case NEG_TIME_MS:
+			if (rotation==ENC_RIGHT_SPIN){
+				if (negative_period < MAX_PERIOD){
+					negative_period++;
+					changed_params |= NEG_TIME_MS;
+					save_param = 1;
+					display_changed|=2;
+				}
+			}
+			else if (rotation==ENC_LEFT_SPIN){
+				if (negative_period > MIN_PERIOD){
+					negative_period--;
+					changed_params |= NEG_TIME_MS;
 					save_param = 1;
 					display_changed|=2;
 				}
@@ -513,20 +645,20 @@ void encoderProcess()
 			case FREQ:
 			if (rotation==ENC_RIGHT_SPIN){
 				if (frequency < MAX_FREQ){
-					frequency+= 0.1;
+					frequency+= 1;
+					setPeriod(1000000 / frequency);
 					changed_params |= FREQ;
 					save_param = 1;
 					display_changed|=2;
-					calculatePeriods();
 				}
 			}
 			else if (rotation==ENC_LEFT_SPIN){
 				if (frequency > MIN_FREQ){
-					frequency-= 0.1;
+					frequency-= 1;
+					setPeriod(1000000 / frequency);
 					changed_params |= FREQ;
 					save_param = 1;
 					display_changed|=2;
-					calculatePeriods();
 				}
 			}
 			break;
@@ -534,29 +666,22 @@ void encoderProcess()
 			if (rotation==ENC_RIGHT_SPIN){
 				if (d_time_percents < MAX_D_TIME){
 					d_time_percents++;
+					setDuty(d_time_percents*10);
 					changed_params |= D_TIME;
 					save_param = 1;
 					display_changed|=2;
-					calculatePeriods();
 				}
 			}
 			else if (rotation==ENC_LEFT_SPIN){
 				if (d_time_percents > MIN_D_TIME){
 					d_time_percents--;
+					setDuty(d_time_percents*10);
 					changed_params |= D_TIME;
 					save_param = 1;
 					display_changed|=2;
-					calculatePeriods();
 				}
 			}
 			break;
-		}
-		//проверяем, может ли быть такое мертвое время у таких частоты и скважности
-		if (changed_params && display_changed){
-			if (dead_time > positive_period-10 || dead_time > negative_period-10){
-				dead_time = positive_period < negative_period ? positive_period-10 : negative_period -10;
-				changed_params |= DEAD_TIME;
-			}
 		}
 	}
 	rotation = ENC_PollEncoder();
@@ -581,16 +706,28 @@ void encoderProcess()
 		}
 	}
 	else if (current_screen == 2){
-		if (revers_enable == false) return;
-		if (rotation==ENC_RIGHT_SPIN){
-			if (current_param == DEAD_TIME) current_param = FREQ;
-			else current_param /= 2;
+		if (revers_enable == false && impuls_enable == false) return;
+		if (rotation==ENC_LEFT_SPIN){
+			if (current_param == GROUP1_BEG && !impuls_enable)
+				current_param = GROUP1_END;
+			else if (current_param == GROUP1_BEG && impuls_enable)
+				current_param = GROUP2_END;
+			else if (current_param == GROUP2_BEG && !revers_enable)
+				current_param = GROUP2_END;
+			else
+				current_param /= 2;
 			enc_butt_resolution_change = true;
 			display_changed|=2;
 		}
-		else if (rotation==ENC_LEFT_SPIN){
-			if (current_param == FREQ) current_param = DEAD_TIME;
-			else current_param *= 2;
+		else if (rotation==ENC_RIGHT_SPIN){
+			if (current_param == GROUP1_END && !impuls_enable)
+				current_param = GROUP1_BEG;
+			else if (current_param == GROUP2_END && revers_enable)
+				current_param = GROUP1_BEG;
+			else if (current_param == GROUP2_END && !revers_enable)
+				current_param = GROUP2_BEG;
+			else
+				current_param *= 2;
 			enc_butt_resolution_change = true;
 			display_changed|=2;
 		}
@@ -599,26 +736,35 @@ void encoderProcess()
 
 void logicProcess()
 {
+	static bool lcd_restart_once = false;
+	static uint8_t out_state = OFF;
 	static uint32_t last_state_time = 0;
-	//переход на быстрое мигание после того, как остается менее 30 сек
+	//РїРµСЂРµС…РѕРґ РЅР° Р±С‹СЃС‚СЂРѕРµ РјРёРіР°РЅРёРµ РїРѕСЃР»Рµ С‚РѕРіРѕ, РєР°Рє РѕСЃС‚Р°РµС‚СЃСЏ РјРµРЅРµРµ 30 СЃРµРє
 	if ((timer_state==1)&&(millis()/1000>=timer_time-FAST_BLINK_TIMER_REMAIND))
 		timer_state = 2;
-	//если диоду таймера не надо мигать - управляем им отсюда
+	//РµСЃР»Рё РґРёРѕРґСѓ С‚Р°Р№РјРµСЂР° РЅРµ РЅР°РґРѕ РјРёРіР°С‚СЊ - СѓРїСЂР°РІР»СЏРµРј РёРј РѕС‚СЃСЋРґР°
 	if ((timer_state==0)&&(timer_ena==1))
 		tim_led = 1;
 	if (timer_ena==0) tim_led = 0;
-	//выключаем источник после таймаута
+	//РІС‹РєР»СЋС‡Р°РµРј РёСЃС‚РѕС‡РЅРёРє РїРѕСЃР»Рµ С‚Р°Р№РјР°СѓС‚Р°
 	if ((timer_state>0)&&(millis()/1000>=timer_time))
 	{
 		timer_state = 0;
 		start_input = 0;
 		display_changed|=8;
 	}
-	//если включен реверс - надо не просто включить источник, а еще и управлять направлением
+	//РµСЃР»Рё РІРєР»СЋС‡РµРЅ СЂРµРІРµСЂСЃ - РЅР°РґРѕ РЅРµ РїСЂРѕСЃС‚Рѕ РІРєР»СЋС‡РёС‚СЊ РёСЃС‚РѕС‡РЅРёРє, Р° РµС‰Рµ Рё СѓРїСЂР°РІР»СЏС‚СЊ РЅР°РїСЂР°РІР»РµРЅРёРµРј
 	if (start_input)
 	{
 		if (revers_enable)
 		{
+			if (lcd_restart_once && millis() - last_state_time  >= PRESS_TIME)
+			{
+				lcdInit();
+				//customSumbolLoad();
+				display_changed = 1;
+				lcd_restart_once = false;
+			}
 			switch (out_state){
 				case OFF:
 					last_state_time = millis();
@@ -629,40 +775,45 @@ void logicProcess()
 				case POS_PERIOD:
 					if (millis() - last_state_time >= positive_period){
 						last_state_time = millis();
-						out_state = POS_DEAD;
-						positive_output = false;
-						start_output = false;
+						out_state = NEG_PERIOD;
+						negative_output = true;
+						start_output = true;
+						//lcd_restart_once = true;
 					}
 				break;
-				case POS_DEAD:
-					if (millis() - last_state_time >= dead_time+1){
+				/*case POS_DEAD:
+					if (millis() - last_state_time >= 1){
 						last_state_time = millis();
 						out_state = NEG_PERIOD;
 						negative_output = true;
 						start_output = true;
+						lcd_restart_once = true;
 					}
-				break;
+				break;*/
 				case NEG_PERIOD:
 					if (millis() - last_state_time >= negative_period){
-						last_state_time = millis();
-						out_state = NEG_DEAD;
-						negative_output = false;
-						start_output = false;
-					}
-				break;
-				case NEG_DEAD:
-					if (millis() - last_state_time >= dead_time+1){
 						last_state_time = millis();
 						out_state = POS_PERIOD;
 						positive_output = true;
 						start_output = true;
+						//lcd_restart_once = true;
 					}
 				break;
+				/*case NEG_DEAD:
+					if (millis() - last_state_time >= 1){
+						last_state_time = millis();
+						out_state = POS_PERIOD;
+						positive_output = true;
+						start_output = true;
+						lcd_restart_once = true;
+					}
+				break;*/
 			}
 		}
 		else {
 			start_output = true;
 			out_state = OFF;
+			last_state_time = 0;
 			positive_output = true;
 			negative_output = false;
 		}
@@ -670,10 +821,11 @@ void logicProcess()
 	else {
 		start_output = false;
 		out_state = OFF;
+		last_state_time = 0;
 		positive_output = false;
 		negative_output = false;
 	}
-	//если таймер включен - обновляем каждую секунду
+	//РµСЃР»Рё С‚Р°Р№РјРµСЂ РІРєР»СЋС‡РµРЅ - РѕР±РЅРѕРІР»СЏРµРј РєР°Р¶РґСѓСЋ СЃРµРєСѓРЅРґСѓ
 	if (timer_state>0) display_changed|=16;
 }
 
@@ -681,19 +833,20 @@ void setStates()
 {
 	if (start_output) 
 	{
-		ClearBit(START_OUT_PORT, START_OUT);
+		SetBit(START_OUT_PORT, START_OUT);
 		SetBit(ACT_LED_PORT, ACT_LED);
 	}
 	else
 	{
-		SetBit(START_OUT_PORT, START_OUT);
+		ClearBit(START_OUT_PORT, START_OUT);
 		ClearBit(ACT_LED_PORT, ACT_LED);
 	}
-	if (positive_output) SetBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
-	else ClearBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
-	if (negative_output) SetBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
-	else ClearBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
-	
+	if (!impuls_enable){
+		if (positive_output) SetBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
+		else ClearBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
+		if (negative_output) SetBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
+		else ClearBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
+	}
 	if (ah_alert_output) SetBit(AH_ALERT_PORT, AH_ALERT);
 	else ClearBit(AH_ALERT_PORT, AH_ALERT);
 	if (tim_led) SetBit(TIM_LED_PORT, TIM_LED);	
@@ -709,12 +862,12 @@ void readStates()
 	adc_state++;
 	if (adc_state == ADC_REFRASH_DURATION)
 	{
-		//если источник запущен и сейчас не мертвое время - меряем значения
+		//РµСЃР»Рё РёСЃС‚РѕС‡РЅРёРє Р·Р°РїСѓС‰РµРЅ Рё СЃРµР№С‡Р°СЃ РЅРµ РјРµСЂС‚РІРѕРµ РІСЂРµРјСЏ - РјРµСЂСЏРµРј Р·РЅР°С‡РµРЅРёСЏ
 		if ((positive_output)||(negative_output)){
 			if (iter>=I_SAMPLES_COUNT)
 			{
 				uint32_t new_I = 0;
-				//сортируем массив намерянных значений чтобы найти медиану
+				//СЃРѕСЂС‚РёСЂСѓРµРј РјР°СЃСЃРёРІ РЅР°РјРµСЂСЏРЅРЅС‹С… Р·РЅР°С‡РµРЅРёР№ С‡С‚РѕР±С‹ РЅР°Р№С‚Рё РјРµРґРёР°РЅСѓ
 				for (int s=0; s < I_SAMPLES_COUNT-1; s++ )
 					for (int s1=s+1; s1 < I_SAMPLES_COUNT; s1++ )
 						if (samples[s]>samples[s1])
@@ -739,27 +892,25 @@ void readStates()
 			}
 			else
 			{
-				//АДС6 (70) - ток
-				// 2В - 100А
+				//РђР”РЎ6 (70) - С‚РѕРє
+				// 2Р’ - 100Рђ
 				samples[iter] = (analogRead(70))/4;
-				// 2В - 400А
+				// 2Р’ - 400Рђ
 				//samples[iter] = (analogRead(65)-correction);
 				iter++;
 			}
 		}
-		// Если источник не запущен - меряем значение коррекции, которое будем вычитать из полученного во время работы.
 		else
 		{
+			// Р•СЃР»Рё РёСЃС‚РѕС‡РЅРёРє РЅРµ Р·Р°РїСѓС‰РµРЅ - РјРµСЂСЏРµРј Р·РЅР°С‡РµРЅРёРµ РєРѕСЂСЂРµРєС†РёРё, РєРѕС‚РѕСЂРѕРµ Р±СѓРґРµРј РІС‹С‡РёС‚Р°С‚СЊ РёР· РїРѕР»СѓС‡РµРЅРЅРѕРіРѕ РІРѕ РІСЂРµРјСЏ СЂР°Р±РѕС‚С‹.
 			//correction = analogRead(70);
-			//не сбрасываем ток если сейчас мертвое время
-			if ((out_state != NEG_DEAD)&&(out_state != POS_DEAD))
-				current = 0;
+			current = 0;
 		}
 		adc_state = 0;
 	}
 	if (adc_state == ADC_REFRASH_DURATION/2)
 	{
-		//АДС7 (71) - напряжение
+		//РђР”РЎ7 (71) - РЅР°РїСЂСЏР¶РµРЅРёРµ
 		uint16_t new_V = (analogRead(71))/10.24;
 		if (voltage - new_V>VOLTAGE_DIFF_TO_REFRASH)
 		{
@@ -775,9 +926,8 @@ void readStates()
 	if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
 	{
 		press_flag = false;
-		millis_reset();
 		ah_calc_last_time = 0;
-		if (start_input)
+		if ((START_BUTT_PIN & (1 << START_BUTT)))
 		{
 			start_input = 0;
 			timer_state = 0;
@@ -785,8 +935,9 @@ void readStates()
 		else
 		{
 			start_input = 1;
+			millis_reset();
 			if (timer_ena)
-			timer_state = 1;
+				timer_state = 1;
 		}
 		display_changed|=4;
 
@@ -794,7 +945,8 @@ void readStates()
 	if ((START_BUTT_PIN & (1 << START_BUTT))&&(start_state))
 	{
 		start_state = false;
-		press_flag = false;
+		butt_press_time = millis();
+		press_flag = true;
 	}
 	else if ((!(START_BUTT_PIN & (1 << START_BUTT)))&&(!start_state))
 	{
@@ -803,7 +955,7 @@ void readStates()
 		press_flag = true;
 	}
 
-	//// Меряем на пине PC1 относительного внутреннего ИОН-а 2.56
+	//// РњРµСЂСЏРµРј РЅР° РїРёРЅРµ PC1 РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕРіРѕ РІРЅСѓС‚СЂРµРЅРЅРµРіРѕ РРћРќ-Р° 2.56
 	//uint32_t new_I = analogRead(193)*4.296875;
 	//if (current - new_I>AMPER_DIFF_TO_REFRASH)
 	//{
@@ -811,10 +963,10 @@ void readStates()
 		//display_changed|=16;
 	//}
 	
-	////Uвых =  UвхR2/(R1 + R2)
-	////U=(опорное напряжение*значение АЦП*коэффициент делителя)/число разрядов АЦП
-	//// Меряем на пине РС0 относительно напряжения питания
-	//// делитель - 2.2кОм/8.2кОм
+	////UРІС‹С… =  UРІС…R2/(R1 + R2)
+	////U=(РѕРїРѕСЂРЅРѕРµ РЅР°РїСЂСЏР¶РµРЅРёРµ*Р·РЅР°С‡РµРЅРёРµ РђР¦Рџ*РєРѕСЌС„С„РёС†РёРµРЅС‚ РґРµР»РёС‚РµР»СЏ)/С‡РёСЃР»Рѕ СЂР°Р·СЂСЏРґРѕРІ РђР¦Рџ
+	//// РњРµСЂСЏРµРј РЅР° РїРёРЅРµ Р РЎ0 РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РЅР°РїСЂСЏР¶РµРЅРёСЏ РїРёС‚Р°РЅРёСЏ
+	//// РґРµР»РёС‚РµР»СЊ - 2.2РєРћРј/8.2РєРћРј
 	//uint16_t new_V = (25*analogRead(64))/1024;
 	//if (voltage - new_V>VOLTAGE_DIFF_TO_REFRASH)
 	//{
@@ -825,6 +977,9 @@ void readStates()
 	
 inline void LongPressBoth()
 {
+	// РЅРµ РїРµСЂРµС…РѕРґРёРј РЅР° РІС‚РѕСЂРѕР№ СЌРєСЂР°РЅ РµСЃР»Рё РёСЃС‚РѕС‡РЅРёРє РІ СЂР°Р±РѕС‚Рµ
+	//if (start_input) 
+	//	return;
 	if (current_screen == 1){
 		current_screen = 2;
 		current_param = 2;
@@ -847,7 +1002,7 @@ inline void LongPressLeft()
 		else{
 			timer_ena = 1;
 			display_changed|=16;
-			//если включить таймер при включенном источнике - начинаем сразу считать
+			//РµСЃР»Рё РІРєР»СЋС‡РёС‚СЊ С‚Р°Р№РјРµСЂ РїСЂРё РІРєР»СЋС‡РµРЅРЅРѕРј РёСЃС‚РѕС‡РЅРёРєРµ - РЅР°С‡РёРЅР°РµРј СЃСЂР°Р·Сѓ СЃС‡РёС‚Р°С‚СЊ
 			if (start_input){
 				millis_reset();
 				ah_calc_last_time = 0;
@@ -859,6 +1014,7 @@ inline void LongPressLeft()
 	else{
 		if (revers_enable){
 			revers_enable = false;
+			current_param = D_TIME;
 			eeprom_update_byte(12, (uint8_t)(0));
 		}
 		else {
@@ -873,19 +1029,40 @@ inline void LongPressRight()
 {
 	if (current_screen == 1)
 		summary_ah = 0;
+	else {
+		if (impuls_enable){
+			impuls_enable = false;
+			current_param = POS_TIME;
+			eeprom_update_byte(13, (uint8_t)(0));
+		}
+		else {
+			impuls_enable = true;
+			eeprom_update_byte(13, (uint8_t)(1));
+		}
+		display_changed |= 16;
+	}
 }
 
 inline void PressLeft()
 {
 	if (current_screen == 1)
 		ChangeTimeResolution();
+	else {
+		if (!revers_enable && !impuls_enable) return;
+		if (current_param == GROUP2_BEG && !revers_enable) current_param = GROUP2_END;
+		else if (current_param == GROUP1_BEG && !impuls_enable) current_param = GROUP1_END;
+		else if (current_param == GROUP1_BEG && impuls_enable) current_param = GROUP2_END;
+		else current_param /= 2;
+		enc_butt_resolution_change = true;
+		display_changed|=2;
+	}
 }
 
 inline void PressRight()
 {	
 	if (current_screen == 1){
-		//если в момент нажатия на кнопку энкодера показывается текущее значение ампер часов
-		// - не меняем разрешение, а только показываем установленное значение
+		//РµСЃР»Рё РІ РјРѕРјРµРЅС‚ РЅР°Р¶Р°С‚РёСЏ РЅР° РєРЅРѕРїРєСѓ СЌРЅРєРѕРґРµСЂР° РїРѕРєР°Р·С‹РІР°РµС‚СЃСЏ С‚РµРєСѓС‰РµРµ Р·РЅР°С‡РµРЅРёРµ Р°РјРїРµСЂ С‡Р°СЃРѕРІ
+		// - РЅРµ РјРµРЅСЏРµРј СЂР°Р·СЂРµС€РµРЅРёРµ, Р° С‚РѕР»СЊРєРѕ РїРѕРєР°Р·С‹РІР°РµРј СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ
 		if (ah_butt_resolution_change == 0){
 			ah_butt_resolution_change = 1;
 			display_changed|=128;
@@ -895,9 +1072,11 @@ inline void PressRight()
 			ChangeAhResolution();
 		}
 	}
-	else if (current_screen == 2){
-		if (!revers_enable) return;
-		if (current_param == FREQ) current_param = DEAD_TIME;
+	else {
+		if (!revers_enable && !impuls_enable) return;
+		if (current_param == GROUP2_END && revers_enable) current_param = GROUP1_BEG;
+		else if (current_param == GROUP2_END && !revers_enable) current_param = GROUP2_BEG;
+		else if (current_param == GROUP1_END && !impuls_enable) current_param = GROUP1_BEG;
 		else current_param *= 2;
 		enc_butt_resolution_change = true;
 		display_changed|=2;
