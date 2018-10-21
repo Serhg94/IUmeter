@@ -171,7 +171,7 @@ void init()
 	
 	attachCompareInterrupt(disableOutput);
 	attachOverInterrupt(enableOutput);
-	initialize(1000000 / frequency);
+	initialize(1000 / frequency);
 	setDuty(d_time_percents*10);
 
 	//выход START
@@ -646,7 +646,7 @@ void encoderProcess()
 			if (rotation==ENC_RIGHT_SPIN){
 				if (frequency < MAX_FREQ){
 					frequency+= 1;
-					setPeriod(1000000 / frequency);
+					setPeriod(1000 / frequency);
 					changed_params |= FREQ;
 					save_param = 1;
 					display_changed|=2;
@@ -655,7 +655,7 @@ void encoderProcess()
 			else if (rotation==ENC_LEFT_SPIN){
 				if (frequency > MIN_FREQ){
 					frequency-= 1;
-					setPeriod(1000000 / frequency);
+					setPeriod(1000 / frequency);
 					changed_params |= FREQ;
 					save_param = 1;
 					display_changed|=2;

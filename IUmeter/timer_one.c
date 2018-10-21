@@ -65,13 +65,13 @@ void setDuty(int duty)
 void attachOverInterrupt(void (*isr)())
 {
   isrOverCallback = isr;                                       // register the user's callback with the real ISR
-  TIMSK1 = (1<<TOIE1);                                     // sets the timer overflow interrupt enable bit										
+  TIMSK1 |= (1<<TOIE1);                                     // sets the timer overflow interrupt enable bit										
 }
 
 void attachCompareInterrupt(void (*isr)())
 {
 	isrCompareCallback = isr;                                       // register the user's callback with the real ISR
-	TIMSK1 = (1<<OCIE1A);    
+	TIMSK1 |= (1<<OCIE1A);    
 }
 
 void detachInterrupt()
