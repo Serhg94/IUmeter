@@ -777,6 +777,7 @@ void logicProcess()
 						last_state_time = millis();
 						out_state = NEG_PERIOD;
 						negative_output = true;
+						positive_period = false;
 						start_output = true;
 						//lcd_restart_once = true;
 					}
@@ -795,6 +796,7 @@ void logicProcess()
 						last_state_time = millis();
 						out_state = POS_PERIOD;
 						positive_output = true;
+						negative_output = false;
 						start_output = true;
 						//lcd_restart_once = true;
 					}
