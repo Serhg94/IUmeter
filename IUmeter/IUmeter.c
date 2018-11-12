@@ -647,6 +647,7 @@ void encoderProcess()
 				if (frequency < MAX_FREQ){
 					frequency+= 1;
 					setPeriod(1000 / frequency);
+					setDuty(d_time_percents*10);
 					changed_params |= FREQ;
 					save_param = 1;
 					display_changed|=2;
@@ -656,6 +657,7 @@ void encoderProcess()
 				if (frequency > MIN_FREQ){
 					frequency-= 1;
 					setPeriod(1000 / frequency);
+					setDuty(d_time_percents*10);
 					changed_params |= FREQ;
 					save_param = 1;
 					display_changed|=2;
@@ -777,7 +779,7 @@ void logicProcess()
 						last_state_time = millis();
 						out_state = NEG_PERIOD;
 						negative_output = true;
-						positive_period = false;
+						positive_output = false;
 						start_output = true;
 						//lcd_restart_once = true;
 					}
@@ -842,6 +844,8 @@ void setStates()
 	{
 		ClearBit(START_OUT_PORT, START_OUT);
 		ClearBit(ACT_LED_PORT, ACT_LED);
+		ClearBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
+		ClearBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
 	}
 	if (!impuls_enable){
 		if (positive_output) SetBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
