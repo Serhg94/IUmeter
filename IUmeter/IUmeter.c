@@ -82,8 +82,8 @@ void disableOutput()
 {
 	if (impuls_enable)
 	{
-		if (positive_output) ClearBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
-		else if (negative_output) ClearBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
+		ClearBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
+		ClearBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
 	}
 }
 
@@ -91,6 +91,8 @@ void enableOutput()
 {
 	if (impuls_enable)
 	{
+		ClearBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
+		ClearBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
 		if (positive_output) SetBit(POSITIVE_OUT_PORT, POSITIVE_OUT);
 		else if (negative_output) SetBit(NEGATIVE_OUT_PORT, NEGATIVE_OUT);
 	}
