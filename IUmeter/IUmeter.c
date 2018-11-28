@@ -143,18 +143,18 @@ void displayRefrash()
 				time = timer_time - millis()/1000;
 			else
 				time = timer_time;
-			uint32_t hours = (time/3600);
+			uint16_t hours = (time/3600);
 			time = time - hours*3600;
 			uint16_t min = (time/60);
-			uint8_t sec = time - min*60;
+			uint16_t sec = time - min*60;
 			if ((enc_butt_resolution_change)&&(enc_butt_resolution == 1))
-				sprintf(stringTwo, "%02lu:%02u:    %06lu", hours, min, summary_tr);
+				sprintf(stringTwo, "%02u:%02u:    %06lu", hours, min, summary_tr);
 			else if ((enc_butt_resolution_change)&&(enc_butt_resolution == 60))
-				sprintf(stringTwo, "%02lu:  :%02d  %06lu", hours, sec, summary_tr);
+				sprintf(stringTwo, "%02u:  :%02u  %06lu", hours, sec, summary_tr);
 			else if ((enc_butt_resolution_change)&&(enc_butt_resolution == 3600))
-				sprintf(stringTwo, "  :%02u:%02d  %06lu", min, sec, summary_tr);
+				sprintf(stringTwo, "  :%02u:%02u  %06lu", min, sec, summary_tr);
 			else
-				sprintf(stringTwo, "%02lu:%02u:%02d  %06lu", hours, min, sec, summary_tr);
+				sprintf(stringTwo, "%02u:%02u:%02u  %06lu", hours, min, sec, summary_tr);
 		}
 		else
 		{
