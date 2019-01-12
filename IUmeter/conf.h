@@ -38,7 +38,7 @@
 #define MAX_D_TIME 90
 #define MIN_D_TIME 10
 
-#define START_IGNORE_TIME 250
+#define START_IGNORE_TIME 300
 #define PRESS_TIME 100
 #define LONG_PRESS_TIME 1000
 

@@ -456,12 +456,12 @@ void setStates()
 {
 	if (start_output) 
 	{
-		ClearBit(START_OUT_PORT, START_OUT);
+		SetBit(START_OUT_PORT, START_OUT);
 		SetBit(ACT_LED_PORT, ACT_LED);
 	}
 	else
 	{
-		SetBit(START_OUT_PORT, START_OUT);
+		ClearBit(START_OUT_PORT, START_OUT);
 		ClearBit(ACT_LED_PORT, ACT_LED);
 	}
 	
@@ -541,12 +541,16 @@ void readStates()
 	static bool start_state = false;
 	static uint32_t butt_press_time = 0;
 	static bool press_flag = false;
-	/*if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
+	
+/*   SWITCH MODE*/
+	static bool old_start_state = false;
+	if ((press_flag)&&(millis()-butt_press_time>START_IGNORE_TIME))
 	{
 		press_flag = false;
 		millis_reset();
 		ah_calc_last_time = 0;
-		if ((START_BUTT_PIN & (1 << START_BUTT)))
+		old_start_state = start_state;
+		if (!start_state)
 		{
 			start_input = 0;
 			timer_state = 0;
@@ -571,10 +575,14 @@ void readStates()
 		butt_press_time = millis();
 		start_state = true;
 		press_flag = true;
-	}*/
+	}
+	if (start_state == old_start_state)
+	{
+		press_flag = false;
+	}
 
 /*   BUTTON MODE*/
-	if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
+	/*if ((millis()-butt_press_time>PRESS_TIME)&&(press_flag))
 	{
 		press_flag = false;
 		millis_reset();
@@ -603,7 +611,7 @@ void readStates()
 		butt_press_time = millis();
 		start_state = true;
 		press_flag = true;
-	}
+	}*/
 
 
 	//// Меряем на пине PC1 относительного внутреннего ИОН-а 2.56
